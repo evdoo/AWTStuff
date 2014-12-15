@@ -6,38 +6,39 @@ import java.awt.event.*;
  */
 public class MovingCircle2 extends Frame {
 
-    private final int frameWidth = 500;
-    private final int frameHeight = 500;
+    private final int FRAME_WIDTH = 500;
+    private final int FRAME_HEIGHT = 500;
     private static int initX;
     private static int initY;
-    private static final int robotSize = 20;
+    private static final int ROBOT_SIZE = 20;
     private static int finishX;
     private static int finishY;
-    private final int canvasWidth = frameWidth;
-    private final int canvasHeight = 4 * frameHeight / 5;
+    private final int CANVAS_WIDTH = FRAME_WIDTH;
+    private final int CANVAS_HEIGHT = 4 * FRAME_HEIGHT / 5;
+    private final int SPEED = 10;
+    long prevTime;
+    long currentTime;
+    long time;
 
     public MovingCircle2(String title) {
         super(title);
-        setSize(frameWidth, frameHeight);
+        setSize(FRAME_WIDTH, FRAME_HEIGHT);
         setVisible(true);
         addWindowListener(new WindowAdapter() {
         public void windowClosing(WindowEvent event) {
             System.exit(0);
         }});
 
-        this.setLayout(new FlowLayout());
-        Canvas canvas = new Canvas();
-        canvas.setSize(canvasWidth, canvasHeight);
-        canvas.setVisible(true);
-        canvas.setBackground(Color.GRAY);
-        this.add(canvas);
+        this.setLayout(new BorderLayout());
+        Field field = new Field(CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.add(field, BorderLayout.NORTH);
 
         Panel panel = new Panel();
-        this.add(panel);
+        this.add(panel, BorderLayout.SOUTH);
         Button move = new Button("Move");
         TextField valueX = new TextField("x", 5);
         TextField valueY = new TextField("y", 5);
-        move.addActionListener(new MoveButtonListener(this, valueX, valueY));
+        move.addActionListener(new MoveButtonListener(this, field, valueX, valueY));
         panel.add(move);
         panel.add(valueX);
         panel.add(valueY);
@@ -48,11 +49,13 @@ public class MovingCircle2 extends Frame {
         private Frame parent;
         private TextField fieldX;
         private TextField fieldY;
+        private Field canvas;
 
-        public MoveButtonListener(Frame parentFrame, TextField parentFieldX, TextField parentFieldY) {
+        public MoveButtonListener(Frame parentFrame, Field parentCanvas, TextField parentFieldX, TextField parentFieldY) {
             parent = parentFrame;
             fieldX = parentFieldX;
             fieldY = parentFieldY;
+            canvas = parentCanvas;
         }
 
         public void actionPerformed(ActionEvent event) {
@@ -64,66 +67,59 @@ public class MovingCircle2 extends Frame {
                 x = 0;
                 y = 0;
             }
+            if (x > CANVAS_WIDTH || x < 0) {
+                x = 0;
+            }
+            if (y > CANVAS_HEIGHT || y < 0) {
+                y = 0;
+            }
             finishX = x;
             finishY = y;
-            getFunction(finishX, finishY);
+            prevTime = System.currentTimeMillis();
+            canvas.repaint();
+        }
+    }
+
+    //Рассчитывание координат перерисовки, для анимации движения.
+    public void newXY() {
+        int vectorX = finishX - initX;
+        int vectorY = finishY - initY;
+        double vectorLength = Math.sqrt(Math.pow(finishX - initX, 2) + Math.pow(finishY - initY, 2));
+        double unitVectorX = vectorX / vectorLength;
+        double unitVectorY = vectorY / vectorLength;
+        double x = SPEED * time * unitVectorX;
+        double y = SPEED * time * unitVectorY;
+        initX += x;
+        initY += y;
+    }
+
+    public class Field extends Canvas {
+
+        public Field(int width, int height) {
+            super();
+            setSize(width, height);
+            setVisible(true);
+            setBackground(Color.GRAY);
+        }
+
+        public void paint(Graphics g) {
+            currentTime = System.currentTimeMillis();
+            time = currentTime - prevTime;
+            newXY();
+            g.fillOval(initX - 10, initY - 10, ROBOT_SIZE, ROBOT_SIZE);
+            prevTime = currentTime;
+        }
+    }
+
+    public static void main(String[] args) {
+        MovingCircle2 frame = new MovingCircle2("Robot");
+        while (initX != finishX && initY != finishY) {
             try {
-                parent.repaint();
+                frame.repaint();
                 Thread.sleep(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
-    }
-
-    //Находит коээфициенты прямой между начальной и конечной точкой.
-    public Point getFunction(int x1, int y1) {
-        Point point = new Point();
-        int x2 = initX;
-        int y2 = initY;
-        if (x1 > canvasWidth || x1 < 0) {
-            x1 = 0;
-        }
-        if (y1 > canvasHeight || y1 < 0) {
-            y1 = 0;
-        }
-        double k = (y2 - y1) / (x2 - x1);
-        double b = y1 - k * x1;
-        point.setLocation(k, b);
-        return point;
-    }
-
-    //Рассчитывание координат перерисовки, для анимации движения.
-    public Point newXY(double x, double y) {
-        int speed = 10;
-        long elapsedTime = 0;
-        int k2 = 0;
-        int b2 = 0;
-        Point point = new Point();
-        Point functionPoint = getFunction(finishX, finishY);
-        int k1 = (int) functionPoint.getX();
-        int b1 = (int) functionPoint.getY();
-        int cos = (int) (Math.abs(k1 * k2 + 1) / (Math.sqrt(1 + k1 * k1) * Math.sqrt(1 + k2 * k2)));
-        long newTime = System.currentTimeMillis();
-        x += speed * (newTime - elapsedTime) * cos;
-        y = k1 * x + b1;
-        point.setLocation(x, y);
-        elapsedTime = newTime;
-        return point;
-    }
-
-    public void paint(Graphics g) {
-        double x;
-        double y;
-        Point point = newXY(initX, initY);
-        x = point.getX();
-        y = point.getY();
-        g.fillOval((int) x - 10, (int) y - 10, robotSize, robotSize);
-        initX = (int) x;
-        initY = (int) y;
-    }
-
-    public static void main(String[] args) {
-        MovingCircle2 frame = new MovingCircle2("Robot");
     }
 }
